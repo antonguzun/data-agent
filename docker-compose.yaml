@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  agent-ui:
+    build:
+      context: ./agent-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/research_db
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+    volumes:
+      - kagglehub_volume:/root/.cache/kagglehub/datasets/
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=research_db
+    networks:
+      - app-network
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - IMPORT_TEST_DB=1
+      - MONGODB_URI=mongodb://mongodb:27017/
+    networks:
+      - app-network
+    volumes:
+      - kagglehub_volume:/root/.cache/kagglehub/datasets/
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  kagglehub_volume:
