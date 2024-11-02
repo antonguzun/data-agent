@@ -11,10 +11,11 @@ from pymongo import MongoClient
 from typing import Dict
 
 from logs import init_logger
-from init_test_db import import_test_db
-from schemes import SUMMARY_OUTPUT_SCHEME
-from tools import TOOLS, handle_tools
+from schemes.hypothesis import SUMMARY_OUTPUT_SCHEME
+from tools import tools
 import traceback
+
+from models.datasource import create_datasource
 
 
 class HypothesisStatus(Enum):
@@ -35,7 +36,7 @@ CONVERSATION_KWARGS = dict(
     top_p=1,
     frequency_penalty=0,
     presence_penalty=0,
-    tools=TOOLS,
+    tools=tools.TOOLS,
     parallel_tool_calls=True,
 )
 
@@ -55,11 +56,11 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
     datasource_ids = hypothesis.get("datasourceIds", [])
     datasources = []
     for ds_id in datasource_ids:
-        datasource = mdb.datasources.find_one({"_id": ObjectId(ds_id)})
-        if datasource:
-            datasource["tables"] = mdb["datasource-contexts"].find_one(
-                {"_id": ObjectId(ds_id)}
-            )["tables"]
+        datasource_raw = mdb.datasources.find_one({"_id": ObjectId(ds_id)})
+        if datasource_raw:
+            datasource = create_datasource(datasource_raw)
+            context = mdb["datasource-contexts"].find_one({"_id": ObjectId(ds_id)})
+            datasource.meta = context if context else {}
             datasources.append(datasource)
 
     # Add hypothesis content as user message
@@ -71,19 +72,15 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
     datasources_explanation = """You have the following datasources:\n"""
     if datasources:
         for ds in datasources:
-            datasources_explanation += (
-                f"""<datasource_{ds['name']}>"""
-                f"""<datasourceId>{ds['_id']}</datasourceId>"""
-                f"""<datasourceType>{ds['type']}</datasourceType>"""
-                f"""<tables>{ds['tables']}</tables>"""
-                f"""</datasource_{ds['name']}>"""
-            )
+            datasources_explanation += ds.context_prompt()
+
         messages.append(
             {
                 "role": "system",
                 "content": datasources_explanation,
             }
         )
+
     response = client.chat.completions.create(
         messages=messages,
         response_format=SUMMARY_OUTPUT_SCHEME,
@@ -100,7 +97,7 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
             print(res)
             raise Exception("too many function calls")
 
-        used_tools.extend(handle_tools(response, messages, datasources))
+        used_tools.extend(tools.handle_tools(response, messages, datasources))
 
         response = client.chat.completions.create(
             messages=messages,
@@ -138,10 +135,10 @@ def monitor_tasks():
                 # print(f"Processing new hypothesis: {new_hypothesis['hypothesis_name']}")
 
                 # Update status to processing
-                # db.hypothesis.update_one(
-                #     {"_id": new_hypothesis["_id"]},
-                #     {"$set": {"status": HypothesisStatus.PROCESSING.value}},
-                # )
+                db.hypothesis.update_one(
+                    {"_id": new_hypothesis["_id"]},
+                    {"$set": {"status": HypothesisStatus.PROCESSING.value}},
+                )
 
                 try:
                     # Process the hypothesis
@@ -168,22 +165,23 @@ def monitor_tasks():
                 except Exception as e:
                     print(f"Traceback:\n{traceback.format_exc()}")
                     print(f"Error processing hypothesis: {e}")
-                    # db.hypothesis.update_one(
-                    #     {"_id": new_hypothesis["_id"]},
-                    #     {
-                    #         "$set": {
-                    #             "status": HypothesisStatus.FAILED.value,
-                    #             "error": str(e),
-                    #             "updated_at": datetime.utcnow(),
-                    #         }
-                    #     },
-                    # )
+                    db.hypothesis.update_one(
+                        {"_id": new_hypothesis["_id"]},
+                        {
+                            "$set": {
+                                "status": HypothesisStatus.FAILED.value,
+                                "error": str(e),
+                                "updated_at": datetime.utcnow(),
+                            }
+                        },
+                    )
 
             time.sleep(1)  # Wait 5 seconds before next check
 
         except Exception as e:
             print(f"Monitor error: {e}")
             time.sleep(1)  # Wait longer on error
+        time.sleep(1)  # Wait longer on error
 
 
 if __name__ == "__main__":
