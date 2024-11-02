@@ -12,11 +12,21 @@ from models.datasource import DataSource, create_datasource
 from schemes.hypothesis import SUMMARY_OUTPUT_SCHEME
 from tools import tools
 
-class HypothesisProcessor:
+
+class BaseOpenAIDatasourceAgent:
+    """
+    Agent allowed to use tools.
+    Provides datasource context in prompt.
+
+    response_format defines the logic
+    """
+
+    response_format: dict
+
     def __init__(self, mongodb: Database):
         self.mongodb = mongodb
         self.client = OpenAI()
-        
+
     def _get_datasources(self, datasource_ids: List[str]) -> List[DataSource]:
         """Fetch and prepare datasources for the hypothesis"""
         datasources = []
@@ -24,23 +34,28 @@ class HypothesisProcessor:
             datasource_raw = self.mongodb.datasources.find_one({"_id": ObjectId(ds_id)})
             if datasource_raw:
                 datasource = create_datasource(datasource_raw)
-                context = self.mongodb["datasource-contexts"].find_one({"_id": ObjectId(ds_id)})
+                context = self.mongodb["datasource-contexts"].find_one(
+                    {"_id": ObjectId(ds_id)}
+                )
                 datasource.meta = context if context else {}
                 datasources.append(datasource)
         return datasources
 
-    def _prepare_messages(self, hypothesis: Dict, datasources: List[DataSource]) -> List[Dict]:
-        """Prepare messages for OpenAI chat completion"""
+    def _prepare_messages(
+        self, hypothesis: Dict, datasources: List[DataSource]
+    ) -> List[Dict]:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": hypothesis["hypothesis_main_idea"]}
+            {"role": "user", "content": hypothesis["query"]},
         ]
-        
+
         if datasources:
             datasources_explanation = "You have the following datasources:\n"
-            datasources_explanation += "\n".join(ds.context_prompt() for ds in datasources)
+            datasources_explanation += "\n".join(
+                ds.context_prompt() for ds in datasources
+            )
             messages.append({"role": "system", "content": datasources_explanation})
-            
+
         return messages
 
     def process(self, hypothesis: Dict) -> Dict:
@@ -48,12 +63,12 @@ class HypothesisProcessor:
         datasources = self._get_datasources(hypothesis.get("datasourceIds", []))
         messages = self._prepare_messages(hypothesis, datasources)
         used_tools = []
-        
+
         response = self.client.chat.completions.create(
             messages=messages,
-            response_format=SUMMARY_OUTPUT_SCHEME,
-            tools=tools.TOOLS,
-            **OPENAI_CONFIG
+            response_format=self.response_format,
+            tools=tools.TOOLS,  # TODO! define in function to allow for customization
+            **OPENAI_CONFIG,
         )
 
         tool_calls_count = 0
@@ -67,9 +82,9 @@ class HypothesisProcessor:
 
             response = self.client.chat.completions.create(
                 messages=messages,
-                response_format=SUMMARY_OUTPUT_SCHEME,
+                response_format=self.response_format,
                 tools=tools.TOOLS,
-                **OPENAI_CONFIG
+                **OPENAI_CONFIG,
             )
             tool_calls_count += 1
 

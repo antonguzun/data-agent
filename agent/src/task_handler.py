@@ -6,11 +6,13 @@ from datetime import datetime
 
 from pymongo import MongoClient
 
+from agents.datasource_agents.hypothesis_agent import HypothesisProcessor
+from agents.datasource_agents.question_agent import QuestionProcessor
 from agents.task_categorizer import TaskCategorizer
 from config import TaskStatus, MONITOR_SLEEP_TIME
-from hypothesis_processor import HypothesisProcessor
 from init_test_db import import_test_db
 from logs import init_logger
+from schemes.task_categorizer import TaskCategories
 
 
 class TaskMonitor:
@@ -20,7 +22,8 @@ class TaskMonitor:
         init_logger()
         self.client = MongoClient(os.getenv("MONGODB_URI"))
         self.db = self.client["research_db"]
-        self.processor = HypothesisProcessor(self.db)
+        self.hypothesis_processor = HypothesisProcessor(self.db)
+        self.question_processor = QuestionProcessor(self.db)
         self.categorizer = TaskCategorizer()
 
     def _update_task_status(self, task_id, status, task_type=None, **kwargs):
@@ -32,6 +35,12 @@ class TaskMonitor:
 
         self.db.tasks.update_one({"_id": task_id}, {"$set": update_data})
 
+    def _mark_task_failed(self, task_id, exc):
+        """Mark task as failed with an error message"""
+        logging.error(f"Traceback:\n{traceback.format_exc()}")
+        logging.error(f"Error processing task: {exc}")
+        self._update_task_status(task_id, TaskStatus.FAILED, error=str(exc))
+
     def _process_new_task(self, task):
         """Process a new task and update its status"""
         logging.info(f"Processing task: {task['_id']}")
@@ -40,25 +49,30 @@ class TaskMonitor:
         self._update_task_status(task["_id"], TaskStatus.PROCESSING, task_type)
 
         try:
-            result = self.processor.process(task)
+            if task_type == TaskCategories.HYPOTHESIS:
+                result = self.hypothesis_processor.process(task)
 
-            if not result.get("used_tools"):
-                return
+            elif task_type == TaskCategories.GENERAL_QUESTION:
+                result = self.question_processor.process(task)
 
+            else:
+                logging.error(f"Unknown task type: {task_type}")
+                raise ValueError(f"Unknown task type: {task_type}")
+        except Exception as e:
+            self._mark_task_failed(task["_id"], e)
+            result = {"error": str(e)}
+            raise e
+
+        try:
             self._update_task_status(
                 task["_id"],
                 TaskStatus.COMPLETED,
-                research_summary=result.get("research_summary"),
-                short_summary=result.get("short_summary"),
-                support_strength=result.get("support_strength"),
-                used_tools=result.get("used_tools", []),
+                **result,
             )
+            logging.info(f"Task {task['_id']} processed")
 
         except Exception as e:
-            logging.error(f"Traceback:\n{traceback.format_exc()}")
-            logging.error(f"Error processing task: {e}")
-
-            self._update_task_status(task["_id"], TaskStatus.FAILED, error=str(e))
+            self._mark_task_failed(task["_id"], e)
 
     def run(self):
         """Start monitoring for new tasks"""
