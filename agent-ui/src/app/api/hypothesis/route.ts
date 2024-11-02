@@ -5,7 +5,7 @@ import { ObjectId } from 'mongodb';
 export async function GET() {
   try {
     const db = await dbConnect();
-    const hypotheses = await db.collection('hypothesis').find({}).sort({ created_at: -1 }).toArray();
+    const hypotheses = await db.collection('tasks').find({}).sort({ created_at: -1 }).toArray();
 
     return NextResponse.json(hypotheses);
   } catch (error) {
@@ -29,21 +29,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const hypothesis = {
+    const tasks = {
       query,
       datasourceIds,
       status: 'pending',
       created_at: new Date(),
       updated_at: new Date(),
-      hypothesis_name: query,
-      hypothesis_main_idea: query,
-      research_summary: '',
-      short_summary: '',
-      support_strength: '',
-      used_tools: []
     };
 
-    const result = await db.collection('hypothesis').insertOne(hypothesis);
+    const result = await db.collection('tasks').insertOne(tasks);
 
     return NextResponse.json({ 
       hypothesisId: result.insertedId.toString(),
