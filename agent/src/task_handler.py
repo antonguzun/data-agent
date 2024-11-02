@@ -5,6 +5,7 @@ import os
 import time
 from datetime import datetime
 
+from agent.src.init_test_db import import_test_db
 from bson import ObjectId
 from openai import OpenAI
 from pymongo import MongoClient
@@ -124,7 +125,7 @@ def monitor_tasks():
     client = MongoClient(os.getenv("MONGODB_URI"))
 
     db = client["research_db"]
-    # import_test_db(db)
+    import_test_db(db)
 
     while True:
         try:
