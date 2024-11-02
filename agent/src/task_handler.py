@@ -1,5 +1,6 @@
 from enum import Enum
 import json
+import logging
 import os
 import time
 from datetime import datetime
@@ -23,7 +24,8 @@ class HypothesisStatus(Enum):
     FAILED = "failed"
 
 
-MODEL = "gpt-4o-mini"
+# MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 
 
 CONVERSATION_KWARGS = dict(
@@ -45,7 +47,7 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
     messages.append(
         {
             "role": "system",
-            "content": "You are a professional data analyst. Use the supplied tools to assist the user",
+            "content": "You are a professional data analyst. Use the supplied tools to assist the user. You are allowed to use tools for researching datasource more precisely if consider that's important.",
         }
     )
 
@@ -70,7 +72,11 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
     if datasources:
         for ds in datasources:
             datasources_explanation += (
-                f"""<datasource_{ds['name']}>{ds['tables']}</datasource_{ds['name']}"""
+                f"""<datasource_{ds['name']}>"""
+                f"""<datasourceId>{ds['_id']}</datasourceId>"""
+                f"""<datasourceType>{ds['type']}</datasourceType>"""
+                f"""<tables>{ds['tables']}</tables>"""
+                f"""</datasource_{ds['name']}>"""
             )
         messages.append(
             {
@@ -84,13 +90,14 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
         **CONVERSATION_KWARGS,
     )
 
-    counter = 3
+    counter = 5
     while response.choices[0].message.tool_calls:
         print("Processing tool calls...")
         if counter < 1:
-            res = json.loads(response.choices[0].message.content)
+            res = {}
+            res["llm_data"] = response.choices[0].message.content
             res["used_tools"] = used_tools
-            print(json.dumps(res, indent=2))
+            print(res)
             raise Exception("too many function calls")
 
         used_tools.extend(handle_tools(response, messages, datasources))
@@ -120,21 +127,21 @@ def monitor_tasks():
     client = MongoClient(os.getenv("MONGODB_URI"))
 
     db = client["research_db"]
-    import_test_db(db)
+    # import_test_db(db)
 
     while True:
         try:
             # Find new hypotheses
             new_hypothesis = db.hypothesis.find_one({"status": "pending"})
-
+            logging.info(f"New hypothesis: {new_hypothesis}")
             if new_hypothesis:
-                print(f"Processing new hypothesis: {new_hypothesis['hypothesis_name']}")
+                # print(f"Processing new hypothesis: {new_hypothesis['hypothesis_name']}")
 
                 # Update status to processing
-                db.hypothesis.update_one(
-                    {"_id": new_hypothesis["_id"]},
-                    {"$set": {"status": HypothesisStatus.PROCESSING.value}},
-                )
+                # db.hypothesis.update_one(
+                #     {"_id": new_hypothesis["_id"]},
+                #     {"$set": {"status": HypothesisStatus.PROCESSING.value}},
+                # )
 
                 try:
                     # Process the hypothesis
@@ -142,6 +149,9 @@ def monitor_tasks():
 
                     # Update the hypothesis with results
                     print(result)
+                    if not result.get("used_tools"):
+                        continue
+
                     db.hypothesis.update_one(
                         {"_id": new_hypothesis["_id"]},
                         {
@@ -158,16 +168,16 @@ def monitor_tasks():
                 except Exception as e:
                     print(f"Traceback:\n{traceback.format_exc()}")
                     print(f"Error processing hypothesis: {e}")
-                    db.hypothesis.update_one(
-                        {"_id": new_hypothesis["_id"]},
-                        {
-                            "$set": {
-                                "status": HypothesisStatus.FAILED.value,
-                                "error": str(e),
-                                "updated_at": datetime.utcnow(),
-                            }
-                        },
-                    )
+                    # db.hypothesis.update_one(
+                    #     {"_id": new_hypothesis["_id"]},
+                    #     {
+                    #         "$set": {
+                    #             "status": HypothesisStatus.FAILED.value,
+                    #             "error": str(e),
+                    #             "updated_at": datetime.utcnow(),
+                    #         }
+                    #     },
+                    # )
 
             time.sleep(1)  # Wait 5 seconds before next check
 

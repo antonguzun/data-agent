@@ -24,6 +24,7 @@ services:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=research_db
+      - AGENT_API_URL=agent
     networks:
       - app-network
 

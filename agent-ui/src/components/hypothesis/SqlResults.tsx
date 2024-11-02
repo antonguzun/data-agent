@@ -42,7 +42,7 @@ export const SqlResults = ({ tool, toolIndex }: SqlResultsProps) => {
         </>
       );
     } catch (error) {
-      return <li className="pl-3 pr-4 py-3 text-sm text-gray-500">Unable to parse results</li>;
+      return <li className="pl-3 pr-4 py-3 text-sm text-gray-500">{content}</li>;
     }
   };
 
