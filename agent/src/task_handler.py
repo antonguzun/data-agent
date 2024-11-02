@@ -89,12 +89,12 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
 
     counter = 5
     while response.choices[0].message.tool_calls:
-        print("Processing tool calls...")
+        logging.info("Processing tool calls...")
         if counter < 1:
             res = {}
             res["llm_data"] = response.choices[0].message.content
             res["used_tools"] = used_tools
-            print(res)
+            logging.error(f"Too many function calls: {res}")
             raise Exception("too many function calls")
 
         used_tools.extend(tools.handle_tools(response, messages, datasources))
@@ -112,7 +112,7 @@ def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
         res["updated_at"] = datetime.utcnow()
         return res
     except Exception as e:
-        print(f"Error processing hypothesis: {e}")
+        logging.error(f"Error processing hypothesis: {e}")
 
         raise e
 
@@ -145,7 +145,7 @@ def monitor_tasks():
                     result = process_hypothesis(new_hypothesis, db)
 
                     # Update the hypothesis with results
-                    print(result)
+                    logging.info(f"Hypothesis processing result: {result}")
                     if not result.get("used_tools"):
                         continue
 
@@ -163,8 +163,8 @@ def monitor_tasks():
                         },
                     )
                 except Exception as e:
-                    print(f"Traceback:\n{traceback.format_exc()}")
-                    print(f"Error processing hypothesis: {e}")
+                    logging.error(f"Traceback:\n{traceback.format_exc()}")
+                    logging.error(f"Error processing hypothesis: {e}")
                     db.hypothesis.update_one(
                         {"_id": new_hypothesis["_id"]},
                         {
@@ -179,7 +179,7 @@ def monitor_tasks():
             time.sleep(1)  # Wait 5 seconds before next check
 
         except Exception as e:
-            print(f"Monitor error: {e}")
+            logging.error(f"Monitor error: {e}")
             time.sleep(1)  # Wait longer on error
         time.sleep(1)  # Wait longer on error
 
