@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pymongo import MongoClient
 
-from config import HypothesisStatus, MONITOR_SLEEP_TIME
+from config import TaskStatus, MONITOR_SLEEP_TIME
 from hypothesis_processor import HypothesisProcessor
 from init_test_db import import_test_db
 from logs import init_logger
@@ -21,7 +21,7 @@ class TaskMonitor:
         self.db = self.client["research_db"]
         self.processor = HypothesisProcessor(self.db)
         
-    def _update_hypothesis_status(self, hypothesis_id, status, **kwargs):
+    def _update_task_status(self, hypothesis_id, status, **kwargs):
         """Update hypothesis status and additional fields"""
         update_data = {"status": status.value, "updated_at": datetime.utcnow()}
         update_data.update(kwargs)
@@ -35,7 +35,7 @@ class TaskMonitor:
         """Process a new hypothesis and update its status"""
         logging.info(f"Processing hypothesis: {hypothesis['_id']}")
         
-        self._update_hypothesis_status(hypothesis["_id"], HypothesisStatus.PROCESSING)
+        self._update_task_status(hypothesis["_id"], TaskStatus.PROCESSING)
         
         try:
             result = self.processor.process(hypothesis)
@@ -43,9 +43,9 @@ class TaskMonitor:
             if not result.get("used_tools"):
                 return
                 
-            self._update_hypothesis_status(
+            self._update_task_status(
                 hypothesis["_id"],
-                HypothesisStatus.COMPLETED,
+                TaskStatus.COMPLETED,
                 research_summary=result.get("research_summary"),
                 short_summary=result.get("short_summary"),
                 support_strength=result.get("support_strength"),
@@ -56,9 +56,9 @@ class TaskMonitor:
             logging.error(f"Traceback:\n{traceback.format_exc()}")
             logging.error(f"Error processing hypothesis: {e}")
             
-            self._update_hypothesis_status(
+            self._update_task_status(
                 hypothesis["_id"],
-                HypothesisStatus.FAILED,
+                TaskStatus.FAILED,
                 error=str(e)
             )
 

@@ -1,11 +1,13 @@
 from enum import Enum
 from typing import Dict
 
-class HypothesisStatus(Enum):
+
+class TaskStatus(Enum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 OPENAI_CONFIG: Dict = {
     "model": "gpt-4o-mini",
