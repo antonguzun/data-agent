@@ -1,10 +1,9 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { message } from 'antd';
 import { useDataSources } from '@/hooks/useDataSources';
-import { HypothesisCard } from '../hypothesis/HypothesisCard';
-import { Hypothesis } from '@/types/Hypothesis';
+import { useConfig } from '@/hooks/useConfig';
 
 interface Suggestion {
   id: string;
@@ -18,18 +17,20 @@ export const SearchField: React.FC = () => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { dataSources } = useDataSources();
+  const { config } = useConfig();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const pollHypothesisStatus = async (hypothesisId: string) => {
     try {
-      const response = await fetch(`/api/hypothesis/${hypothesisId}`);
+      const response = await fetch(`/api/results/${hypothesisId}`);
       const data = await response.json();
       
       if (data.status === 'completed') {
         setIsLoading(false);
-        router.push(`/hypothesis/${hypothesisId}`);
+        router.push(`/result/${hypothesisId}`);
       } else if (data.status === 'pending' || data.status === 'processing') {
         setTimeout(() => pollHypothesisStatus(hypothesisId), 500); // Poll every 0.5 seconds
       } else if (data.status === 'failed') {
@@ -64,7 +65,7 @@ export const SearchField: React.FC = () => {
     
     try {
       setIsLoading(true);
-      const response = await fetch('/api/hypothesis', {
+      const response = await fetch('/api/results', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,6 +146,49 @@ export const SearchField: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  const handleGenerateQuery = async () => {
+    // Extract datasource IDs from current query
+    const mentionedNames = searchQuery.match(/@(\w+)/g)?.map(name => name.slice(1)) || [];
+    const datasourceIds = dataSources
+      .filter(ds => mentionedNames.includes(ds.name))
+      .map(ds => ds._id);
+
+    if (datasourceIds.length === 0) {
+      message.warning('Please select at least one datasource using @');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      const response = await fetch(`${config.agentUrl}/generate-hypothesis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ datasourceIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate query');
+      }
+
+      const data = await response.json();
+      console.log('Generated query:', data);
+      setSearchQuery(searchQuery + ' ' + data.hypothesis_main_idea || '');
+    } catch (error) {
+      console.error('Error generating query:', error);
+      message.error('Failed to generate query. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Check if any datasources are mentioned in the query
+  const hasDatasources = useMemo(() => {
+    const mentionedNames = searchQuery.match(/@(\w+)/g)?.map(name => name.slice(1)) || [];
+    return mentionedNames.length > 0;
+  }, [searchQuery]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
@@ -185,14 +229,26 @@ export const SearchField: React.FC = () => {
               ))}
             </div>
           )}
-          <button
-            onClick={handleSearch}
-            disabled={isLoading}
-            className={`w-full bg-indigo-600 text-white py-3 px-6 rounded-md transition-colors duration-200 
-              ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-700'}`}
-          >
-            {isLoading ? 'Processing...' : 'Search'}
-          </button>
+          <div className="flex gap-2">
+            {hasDatasources && (
+              <button
+                onClick={handleGenerateQuery}
+                disabled={isGenerating}
+                className={`flex-1 bg-green-600 text-white py-3 px-6 rounded-md transition-colors duration-200 
+                  ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'}`}
+              >
+                {isGenerating ? 'Generating...' : 'Generate Query'}
+              </button>
+            )}
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className={`flex-1 bg-indigo-600 text-white py-3 px-6 rounded-md transition-colors duration-200 
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-700'}`}
+            >
+              {isLoading ? 'Processing...' : 'Search'}
+            </button>
+          </div>
 
         </div>
       </div>

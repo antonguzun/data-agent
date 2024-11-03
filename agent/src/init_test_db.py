@@ -12,6 +12,12 @@ def import_test_db(db: MongoClient):
         logger.info("Skipping test DB import (IMPORT_TEST_DB not set)")
         return
 
+    # Check if wildfires database already exists
+    existing_datasource = db.datasources.find_one({"name": "wildfires"})
+    if existing_datasource:
+        logger.info("Wildfires database already exists, skipping import")
+        return
+
     logger.info("Starting test database initialization")
     try:
         path = kagglehub.dataset_download("rtatman/188-million-us-wildfires")

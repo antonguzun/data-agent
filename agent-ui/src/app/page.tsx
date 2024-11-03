@@ -5,14 +5,20 @@ import Footer from '@/components/menu/footer';
 import { SearchField } from '@/components/search/SearchField';
 
 export default function Home() {
+  const config = getServerConfig();
+  
   return (
     <main className="flex min-h-screen flex-col items-center">
-      <Header />
+      {/* <Header /> */}
       <div className="flex-grow flex items-center justify-center w-full px-4">
-        <SearchField />
+        <ConfigProvider config={config}>
+          <SearchField />
+        </ConfigProvider>
       </div>
       <Footer />
     </main>
   );
 }
 
+import { getServerConfig } from '@/config';
+import { ConfigProvider } from '@/providers/ConfigProvider';

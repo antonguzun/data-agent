@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, List, Modal, Form, Input, Select, message } from 'antd';
-import { PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+// import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import { IDataSource, DataSourceType } from '@/types/DataSource';
 
 
@@ -120,7 +121,7 @@ const DataSourceManager: React.FC = () => {
                     <strong>{item.name}</strong> ({item.type})
                   </div>
                   <div className="ml-2 flex-shrink-0 flex">
-                    <Button
+                    {/* <Button
                       icon={<ArrowUpOutlined />}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -137,7 +138,7 @@ const DataSourceManager: React.FC = () => {
                       }}
                       disabled={index === dataSources.length - 1}
                       className="mr-2"
-                    />
+                    /> */}
                     <Button 
                       icon={<DeleteOutlined />} 
                       onClick={(e) => {

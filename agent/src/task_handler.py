@@ -1,180 +1,97 @@
-from enum import Enum
-import json
+import logging
 import os
 import time
+import traceback
 from datetime import datetime
 
-from bson import ObjectId
-from openai import OpenAI
 from pymongo import MongoClient
-from typing import Dict
 
-from logs import init_logger
+from agents.datasource_agents.hypothesis_agent import HypothesisProcessor
+from agents.datasource_agents.question_agent import QuestionProcessor
+from agents.task_categorizer import TaskCategorizer
+from config import TaskStatus, MONITOR_SLEEP_TIME
 from init_test_db import import_test_db
-from schemes import SUMMARY_OUTPUT_SCHEME
-from tools import TOOLS, handle_tools
-import traceback
+from logs import init_logger
+from schemes.task_categorizer import TaskCategories
 
 
-class HypothesisStatus(Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
+class TaskMonitor:
+    """Monitors and processes hypothesis tasks"""
 
+    def __init__(self):
+        init_logger()
+        self.client = MongoClient(os.getenv("MONGODB_URI"))
+        self.db = self.client["research_db"]
+        self.hypothesis_processor = HypothesisProcessor(self.db)
+        self.question_processor = QuestionProcessor(self.db)
+        self.categorizer = TaskCategorizer()
 
-MODEL = "gpt-4o-mini"
+    def _update_task_status(self, task_id, status, task_type=None, **kwargs):
+        """Update task status and additional fields"""
+        update_data = {"status": status.value, "updated_at": datetime.utcnow()}
+        if task_type:
+            update_data["task_type"] = task_type.value
+        update_data.update(kwargs)
 
+        self.db.tasks.update_one({"_id": task_id}, {"$set": update_data})
 
-CONVERSATION_KWARGS = dict(
-    model=MODEL,
-    temperature=1,
-    max_tokens=2048,
-    top_p=1,
-    frequency_penalty=0,
-    presence_penalty=0,
-    tools=TOOLS,
-    parallel_tool_calls=True,
-)
+    def _mark_task_failed(self, task_id, exc):
+        """Mark task as failed with an error message"""
+        logging.error(f"Traceback:\n{traceback.format_exc()}")
+        logging.error(f"Error processing task: {exc}")
+        self._update_task_status(task_id, TaskStatus.FAILED, error=str(exc))
 
+    def _process_new_task(self, task):
+        """Process a new task and update its status"""
+        logging.info(f"Processing task: {task['_id']}")
 
-def process_hypothesis(hypothesis: Dict, mdb) -> Dict:
-    """Process a single hypothesis using OpenAI and return the results"""
+        task_type = self.categorizer.categorize(task["query"])
+        self._update_task_status(task["_id"], TaskStatus.PROCESSING, task_type)
 
-    messages = []
-    messages.append(
-        {
-            "role": "system",
-            "content": "You are a professional data analyst. Use the supplied tools to assist the user",
-        }
-    )
-
-    # Get datasource credentials for the hypothesis
-    datasource_ids = hypothesis.get("datasourceIds", [])
-    datasources = []
-    for ds_id in datasource_ids:
-        datasource = mdb.datasources.find_one({"_id": ObjectId(ds_id)})
-        if datasource:
-            datasource["tables"] = mdb["datasource-contexts"].find_one(
-                {"_id": ObjectId(ds_id)}
-            )["tables"]
-            datasources.append(datasource)
-
-    # Add hypothesis content as user message
-    messages.append({"role": "user", "content": hypothesis["hypothesis_main_idea"]})
-
-    client = OpenAI()
-    used_tools = []
-
-    datasources_explanation = """You have the following datasources:\n"""
-    if datasources:
-        for ds in datasources:
-            datasources_explanation += (
-                f"""<datasource_{ds['name']}>{ds['tables']}</datasource_{ds['name']}"""
-            )
-        messages.append(
-            {
-                "role": "system",
-                "content": datasources_explanation,
-            }
-        )
-    response = client.chat.completions.create(
-        messages=messages,
-        response_format=SUMMARY_OUTPUT_SCHEME,
-        **CONVERSATION_KWARGS,
-    )
-
-    counter = 3
-    while response.choices[0].message.tool_calls:
-        print("Processing tool calls...")
-        if counter < 1:
-            res = json.loads(response.choices[0].message.content)
-            res["used_tools"] = used_tools
-            print(json.dumps(res, indent=2))
-            raise Exception("too many function calls")
-
-        used_tools.extend(handle_tools(response, messages, datasources))
-
-        response = client.chat.completions.create(
-            messages=messages,
-            response_format=SUMMARY_OUTPUT_SCHEME,
-            **CONVERSATION_KWARGS,
-        )
-        counter -= 1
-
-    try:
-        res = json.loads(response.choices[0].message.content)
-        res["used_tools"] = used_tools
-        res["updated_at"] = datetime.utcnow()
-        return res
-    except Exception as e:
-        print(f"Error processing hypothesis: {e}")
-
-        raise e
-
-
-def monitor_tasks():
-    """Monitor MongoDB for new hypotheses and process them"""
-    init_logger()
-
-    client = MongoClient(os.getenv("MONGODB_URI"))
-
-    db = client["research_db"]
-    import_test_db(db)
-
-    while True:
         try:
-            # Find new hypotheses
-            new_hypothesis = db.hypothesis.find_one({"status": "pending"})
+            if task_type == TaskCategories.HYPOTHESIS:
+                result = self.hypothesis_processor.process(task)
 
-            if new_hypothesis:
-                print(f"Processing new hypothesis: {new_hypothesis['hypothesis_name']}")
+            elif task_type == TaskCategories.GENERAL_QUESTION:
+                result = self.question_processor.process(task)
 
-                # Update status to processing
-                db.hypothesis.update_one(
-                    {"_id": new_hypothesis["_id"]},
-                    {"$set": {"status": HypothesisStatus.PROCESSING.value}},
-                )
+            else:
+                logging.error(f"Unknown task type: {task_type}")
+                raise ValueError(f"Unknown task type: {task_type}")
+        except Exception as e:
+            self._mark_task_failed(task["_id"], e)
+            result = {"error": str(e)}
+            raise e
 
-                try:
-                    # Process the hypothesis
-                    result = process_hypothesis(new_hypothesis, db)
-
-                    # Update the hypothesis with results
-                    print(result)
-                    db.hypothesis.update_one(
-                        {"_id": new_hypothesis["_id"]},
-                        {
-                            "$set": {
-                                "status": HypothesisStatus.COMPLETED.value,
-                                "research_summary": result.get("research_summary"),
-                                "short_summary": result.get("short_summary"),
-                                "support_strength": result.get("support_strength"),
-                                "used_tools": result.get("used_tools", []),
-                                "updated_at": datetime.utcnow(),
-                            }
-                        },
-                    )
-                except Exception as e:
-                    print(f"Traceback:\n{traceback.format_exc()}")
-                    print(f"Error processing hypothesis: {e}")
-                    db.hypothesis.update_one(
-                        {"_id": new_hypothesis["_id"]},
-                        {
-                            "$set": {
-                                "status": HypothesisStatus.FAILED.value,
-                                "error": str(e),
-                                "updated_at": datetime.utcnow(),
-                            }
-                        },
-                    )
-
-            time.sleep(1)  # Wait 5 seconds before next check
+        try:
+            self._update_task_status(
+                task["_id"],
+                TaskStatus.COMPLETED,
+                **result,
+            )
+            logging.info(f"Task {task['_id']} processed")
 
         except Exception as e:
-            print(f"Monitor error: {e}")
-            time.sleep(1)  # Wait longer on error
+            self._mark_task_failed(task["_id"], e)
+
+    def run(self):
+        """Start monitoring for new tasks"""
+        import_test_db(self.db)
+
+        while True:
+            try:
+                # Check for new tasks
+                new_task = self.db.tasks.find_one({"status": "pending"})
+                if new_task:
+                    self._process_new_task(new_task)
+
+                time.sleep(MONITOR_SLEEP_TIME)
+
+            except Exception as e:
+                logging.exception(f"Monitor error: {e}")
+                time.sleep(MONITOR_SLEEP_TIME)
 
 
 if __name__ == "__main__":
-    monitor_tasks()
+    monitor = TaskMonitor()
+    monitor.run()

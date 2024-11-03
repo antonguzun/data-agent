@@ -6,6 +6,10 @@ SUMMARY_OUTPUT_SCHEME = {
         "schema": {
             "type": "object",
             "properties": {
+                "chain_of_thoughts": {
+                    "type": "string",
+                    "description": "Please explain your chain of thoughts.",
+                },
                 "hypothesis_name": {
                     "type": "string",
                     "description": "The name of the hypothesis being proposed.",
@@ -29,6 +33,7 @@ SUMMARY_OUTPUT_SCHEME = {
                 },
             },
             "required": [
+                "chain_of_thoughts",
                 "hypothesis_name",
                 "hypothesis_main_idea",
                 "research_summary",

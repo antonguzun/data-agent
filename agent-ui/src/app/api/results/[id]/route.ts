@@ -9,7 +9,7 @@ export async function GET(
   try {
     const db = await dbConnect();
     const hypothesis = await db
-      .collection('hypothesis')
+      .collection('tasks')
       .findOne({ _id: new ObjectId(params.id) });
 
     if (!hypothesis) {
