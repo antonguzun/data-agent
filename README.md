@@ -51,7 +51,7 @@ docker compose up
 
 ### Data Sources
 - [x] SQLite support
-- [ ] MySQL support
+- [x] MySQL support
 - [ ] PostgreSQL support
 - [ ] ClickHouse support
 
