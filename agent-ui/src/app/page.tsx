@@ -9,7 +9,7 @@ export default function Home() {
   
   return (
     <main className="flex min-h-screen flex-col items-center">
-      <Header />
+      {/* <Header /> */}
       <div className="flex-grow flex items-center justify-center w-full px-4">
         <ConfigProvider config={config}>
           <SearchField />

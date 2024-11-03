@@ -9,7 +9,6 @@ from pymongo.database import Database
 
 from config import OPENAI_CONFIG, SYSTEM_PROMPT, MAX_TOOL_CALLS
 from models.datasource import DataSource, create_datasource
-from schemes.hypothesis import SUMMARY_OUTPUT_SCHEME
 from tools import tools
 
 

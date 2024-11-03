@@ -25,12 +25,12 @@ export const SearchField: React.FC = () => {
 
   const pollHypothesisStatus = async (hypothesisId: string) => {
     try {
-      const response = await fetch(`/api/hypothesis/${hypothesisId}`);
+      const response = await fetch(`/api/results/${hypothesisId}`);
       const data = await response.json();
       
       if (data.status === 'completed') {
         setIsLoading(false);
-        router.push(`/hypothesis/${hypothesisId}`);
+        router.push(`/result/${hypothesisId}`);
       } else if (data.status === 'pending' || data.status === 'processing') {
         setTimeout(() => pollHypothesisStatus(hypothesisId), 500); // Poll every 0.5 seconds
       } else if (data.status === 'failed') {
@@ -65,7 +65,7 @@ export const SearchField: React.FC = () => {
     
     try {
       setIsLoading(true);
-      const response = await fetch('/api/hypothesis', {
+      const response = await fetch('/api/results', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
