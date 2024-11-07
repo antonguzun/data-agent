@@ -1,3 +1,4 @@
+import json
 import logging
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
@@ -8,6 +9,13 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from openai import OpenAI
+import asyncio
+from fastapi import WebSocket, WebSocketDisconnect
+from datetime import datetime
+
+from agents.chat_agent import ChatOpenAIDatasourceAgent
+from chat_processor import Conversation
+from config import TaskStatus
 
 app = FastAPI()
 
@@ -105,6 +113,39 @@ async def generate_hypothesis(request: DatasourceRequest):
         raise HTTPException(
             status_code=500, detail=f"Error generating hypothesis: {str(e)}"
         )
+
+
+
+@app.websocket("/ws/{conversation_id}")
+async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
+    await websocket.accept()
+    
+    conversation = Conversation.create(db, conversation_id)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data).get("content")
+            res = conversation.add_user_message(db, message)
+            
+            agent = ChatOpenAIDatasourceAgent(db, conversation)
+            try:
+                for response in agent.process(res.message):
+                    if response:
+                        await websocket.send_text(response.model_dump_json())
+                        # Give other tasks a chance to run
+                        await asyncio.sleep(0)
+            except Exception as e:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "content": str(e)
+                }))
+                
+    except WebSocketDisconnect:
+        print(f"Client disconnected from conversation {conversation_id}")
+
+
+
 
 
 if __name__ == "__main__":

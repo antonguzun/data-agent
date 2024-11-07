@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from agents.datasource_agents.hypothesis_agent import HypothesisProcessor
 from agents.datasource_agents.question_agent import QuestionProcessor
 from agents.task_categorizer import TaskCategorizer
+from agents.chat_agent import ChatAgent
 from config import TaskStatus, MONITOR_SLEEP_TIME
 from init_test_db import import_test_db
 from logs import init_logger
@@ -25,6 +26,7 @@ class TaskMonitor:
         self.hypothesis_processor = HypothesisProcessor(self.db)
         self.question_processor = QuestionProcessor(self.db)
         self.categorizer = TaskCategorizer()
+        self.chat_agent = ChatAgent(self.db)
 
     def _update_task_status(self, task_id, status, task_type=None, **kwargs):
         """Update task status and additional fields"""
