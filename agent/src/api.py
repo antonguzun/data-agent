@@ -158,7 +158,7 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
                 #     }))
                 # continue
             res = conversation.add_user_message(db, message)
-            if len(res.datasourceIds) == 0:
+            if len(res.datasoruceIds) == 0:
                 await websocket.send_text(json.dumps({
                     "type": "error",
                     "content": "No datasource IDs provided"
