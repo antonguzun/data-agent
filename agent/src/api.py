@@ -125,12 +125,49 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
     try:
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data).get("content")
-            res = conversation.add_user_message(db, message)
+            message = json.loads(data)
             
+            if message.get('type') == 'fix_sql':
+                # Get the event ID and new query
+                logging.info(f"Fixing SQL query: {message}")
+                raise NotImplementedError("Fixing SQL queries is not yet implemented")
+                # event_id = message.get('eventId')
+                # new_query = message.get('query')
+                
+                # # Remove all events after the specified event ID
+                # conversation.remove_events_after(db, event_id)
+                
+                # # Update the tool call with new query
+                # conversation.update_tool_call_query(db, event_id, new_query)
+                
+                # # Get the last user message to restart processing
+                # last_user_message = conversation.get_last_user_message(db)
+                # if not last_user_message:
+                #     continue
+                    
+                # agent = ChatOpenAIDatasourceAgent(db, conversation)
+                # try:
+                #     for response in agent.process(last_user_message.message, last_user_message.datasourceIds):
+                #         if response:
+                #             await websocket.send_text(response.model_dump_json())
+                #             await asyncio.sleep(0)
+                # except Exception as e:
+                #     await websocket.send_text(json.dumps({
+                #         "type": "error",
+                #         "content": str(e)
+                #     }))
+                # continue
+            res = conversation.add_user_message(db, message)
+            if len(res.datasourceIds) == 0:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "content": "No datasource IDs provided"
+                }))
+                continue
+
             agent = ChatOpenAIDatasourceAgent(db, conversation)
             try:
-                for response in agent.process(res.message):
+                for response in agent.process(res.message, res.datasoruceIds):
                     if response:
                         await websocket.send_text(response.model_dump_json())
                         # Give other tasks a chance to run

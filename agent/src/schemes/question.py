@@ -1,3 +1,13 @@
+from pydantic import BaseModel
+
+
+class QuestionOutputScheme(BaseModel):
+    chain_of_thoughts: str
+    question_title: str
+    answer: str
+
+
+
 QUESTION_OUTPUT_SCHEME = {
     "type": "json_schema",
     "json_schema": {

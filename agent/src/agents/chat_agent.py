@@ -1,5 +1,3 @@
-from datetime import datetime
-import json
 import logging
 from typing import Any, Dict, Generator, List
 
@@ -60,15 +58,20 @@ class ChatOpenAIDatasourceAgent:
 
         return messages
 
-    def process(self, question) -> Generator[Any, Any, Any]:
+    def process(self, question, datasourceIds: list[str]) -> Generator[Any, Any, Any]:
         """Process a single hypothesis using OpenAI and return the results"""
-        datasources = self._get_datasources(["671f7e3609fd32f8216e06c6"])
+        # last_event = self.conversation.events[-1]
+        # if last_event.role == "system":
+        #     logging.error("Cannot process system message")
+        #     raise Exception("Cannot process system message")
+
+        # if conversation iniciated by user
+        # else try to process the message
+        datasources = self._get_datasources(datasourceIds)
         messages = self._prepare_messages(question, datasources)
         for message in messages:
-            event = self.conversation.add_message(self.mongodb, message)
+            event = self.conversation.add_prompt_message(self.mongodb, message)
             yield event
-
-        used_tools = []
 
         response = self.client.chat.completions.create(
             messages=messages,
@@ -102,9 +105,11 @@ class ChatOpenAIDatasourceAgent:
             tool_calls_count += 1
 
         try:
-            result = json.loads(response.choices[0].message.content)
-            result["used_tools"] = used_tools
-            result["updated_at"] = datetime.utcnow()
+            event = self.conversation.add_message(
+                self.mongodb, dict(response.choices[0].message)
+            )
+            yield event
+
         except Exception as e:
             logging.error(f"Error processing hypothesis: {e}")
             raise

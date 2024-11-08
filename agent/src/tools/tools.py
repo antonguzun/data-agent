@@ -31,7 +31,7 @@ TOOLS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The SQL query to be executed",
+                        "description": "The SQL query to be executed. Please never use '*' for selecting all columns, explicitly list the columns you need.",
                     },
                     "datasourceId": {
                         "type": "string",
