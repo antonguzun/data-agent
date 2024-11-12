@@ -129,14 +129,57 @@ export function ToolCallRenderer({ event, matchingToolResult, ws }: ToolCallRend
           );
         }
 
+        console.log(columns);
+        console.log(data);
+        if (data.length > 0) {
+          console.log(columns.length);
+          console.log(data[0].length);
+          if (columns.length === data[0].length) {
+            console.log(data[0].length);
+            const gridData = data.map(row => {
+              const formattedRow: Record<string, any> = {};
+              columns.forEach((col, index) => {
+                formattedRow[col] = row[index];
+              });
+              return formattedRow;
+            });
+            console.log(gridData);
+            console.log('Attempting to render SpreadGrid with data:', gridData);
+            console.log('First row sample:', gridData[0]);
+            console.log('GridData structure:', {
+              numberOfRows: gridData.length,
+              sampleRow: gridData[0],
+              allColumns: Object.keys(gridData[0])
+            });
+            return (<div className="mt-4">
+              <SpreadGrid
+                data={gridData}
+                className="w-full bg-white rounded shadow"
+              />
+            </div>)
+          } else {
+            const gridData = data
+            return (
+              <div className="overflow-x-auto">
+                <pre className="text-sm bg-gray-800 p-2 rounded">
+                  {matchingToolResult.output}
+                </pre>
+                <SpreadGrid data={gridData} />
+              </div>
+            );
+
+          }
+        }
+
+        // Fallback to raw output display if columns or data are empty
         return (
-          <div className="overflow-x-auto">
-            <SpreadGrid data={data} />
-          </div>
+          <pre className="text-sm bg-gray-800 p-2 rounded">
+            {matchingToolResult.output}
+          </pre>
         );
       }
     } catch (e) {
-      // Fall through to default rendering
+      console.error(e);
     }
 
     return (
