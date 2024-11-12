@@ -182,9 +182,6 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
         print(f"Client disconnected from conversation {conversation_id}")
 
 
-
-
-
 if __name__ == "__main__":
     import uvicorn
 

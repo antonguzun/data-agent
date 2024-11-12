@@ -8,7 +8,7 @@ export default function Home() {
   const config = getServerConfig();
 
   return (
-    <main className="flex">
+    <main className="flex overflow-hidden">
         <ConfigProvider config={config}>
           <ChatInterface />
         </ConfigProvider>

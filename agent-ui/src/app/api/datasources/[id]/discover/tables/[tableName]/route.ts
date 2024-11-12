@@ -24,12 +24,24 @@ async function getSQLiteTableInfo(db: any, tableName: string): Promise<string[]>
     return sqliteTable.map((row: RowDataPacket) => row.sql as string);
 }
 
+async function getClickhouseTableInfo(db: any, tableName: string): Promise<string[]> {
+    const [showCreateTable] = await db.query(
+        { query: `SHOW CREATE TABLE ${tableName}` }
+    );
+    const showCreateTableJson = await showCreateTable.read();
+    console.log(showCreateTableJson);
+    return showCreateTable.map((row: RowDataPacket) => Object.values(row)[0] as string);
+}
+
+
 async function getTableInfo(db: any, type: DataSourceType, tableName: string): Promise<string[]> {
     switch (type) {
         case DataSourceType.MySQL:
             return getMySQLTableInfo(db, tableName);
         case DataSourceType.SQLite:
             return getSQLiteTableInfo(db, tableName);
+        case DataSourceType.ClickHouse:
+            return getClickhouseTableInfo(db, tableName);
         default:
             throw new Error(`Unsupported database type: ${type}`);
     }

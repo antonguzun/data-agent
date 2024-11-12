@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { createDataSourceConnection, getDataSourceCredentials } from '@/libs/DataSourceConnection';
 import { DataSourceType } from '@/types/DataSource';
+import { NodeClickHouseClient } from '@clickhouse/client/dist/client';
+
+type CHData = { name: string }
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     var db;
@@ -27,12 +30,27 @@ export async function GET(request: Request, { params }: { params: { id: string }
                 tables = sqliteTables.map(row => row.name);
                 break;
 
+            case DataSourceType.ClickHouse:
+                // if (db instanceof NodeClickHouseClient) {
+                const rows = await db.query(
+                    {
+                        query: 'SELECT name FROM system.tables WHERE database = currentDatabase();',
+                        format: 'JSONEachRowWithProgress',
+                    }
+                );
+                const data = await rows.json<CHData>();
+                console.log(data);
+                tables = data.map((row: CHData) => row.name);
+                const tableRows = data.filter((item: any) => item.row).map((item: any) => item.row.name);
+                tables = tableRows;
+                break;
+
             default:
                 throw new Error(`Unsupported database type: ${credentials.type}`);
         }
 
         console.log(tables);
-        return NextResponse.json({tableNames: tables}, { status: 200 });
+        return NextResponse.json({ tableNames: tables }, { status: 200 });
     } catch (error: unknown) {
         console.error(error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -42,7 +60,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
         );
     } finally {
         if (db) {
-            await db.end();
+            if (db instanceof NodeClickHouseClient) {
+                await db.close();
+            } else {
+                try {
+                    await db.end();
+                } catch (error) {
+                    await db.close();
+                }
+            }
+
         }
     }
 }

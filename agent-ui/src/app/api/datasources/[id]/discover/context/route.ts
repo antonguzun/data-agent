@@ -7,6 +7,8 @@ import {
   createDataSourceConnection, 
   getDataSourceCredentials 
 } from '@/libs/DataSourceConnection';
+import { NodeClickHouseClient } from '@clickhouse/client/dist/client';
+import { type Row } from '@clickhouse/client'
 
 export async function GET(
   request: Request,
@@ -83,6 +85,18 @@ async function fetchTable(
       );
       tableDefinition = sqliteTable.map((row: any) => row.sql)[0];
       break;
+    case DataSourceType.ClickHouse:
+        const rows = await db.query(
+            { query: `SHOW CREATE TABLE ${tableName}`, format: 'CSV', }
+        );
+        const data = rows.text()
+
+        tableDefinition = data;
+        break;
+
+      // } else {
+      //   throw new Error(`Unsupported database type: ${credentials.type}`);
+      // }
 
     default:
       throw new Error(`Unsupported database type: ${credentials.type}`);

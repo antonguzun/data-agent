@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.8.0",
     "@heroicons/react": "^2.1.5",
     "antd": "^5.21.4",
     "clsx": "^2.1.1",

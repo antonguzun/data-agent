@@ -1,6 +1,7 @@
 pydantic>=2.9.2
 pymongo==4.10.1
 mysql-connector-python
+clickhouse-driver
 
 openai==1.47.0
 tavily-python==0.5.0

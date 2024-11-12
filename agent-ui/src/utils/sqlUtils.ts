@@ -24,7 +24,7 @@ import { format } from 'sql-formatter';
 export function formatSQL(sql: string): string {
   return format(sql, {
     language: 'sql',
-    uppercase: true,
+    keywordCase: 'upper',
     indentStyle: 'standard'
   });
 }

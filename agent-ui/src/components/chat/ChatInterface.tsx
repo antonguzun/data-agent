@@ -6,24 +6,21 @@ import { EventRenderer } from './EventRenderer';
 import { useDataSources } from '@/hooks/useDataSources';
 import { DataSourceSelector } from './DataSourceSelector';
 import { message } from 'antd';
-
-
-interface Event {
-  id: string;
-  type: string;
-  timestamp: string;
-  [key: string]: any;
-}
+import type { Event, MessageEvent, ToolResultEvent } from '@/types/events';
 
 export default function ChatInterface() {
   const [events, setEvents] = useState<Event[]>([]);
   const [input, setInput] = useState('');
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedDatasources, setSelectedDatasources] = useState<string[]>(() => {
+  const [selectedDatasources, setSelectedDatasources] = useState<string[]>([]);
+
+  useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  });
+    if (saved) {
+      setSelectedDatasources(JSON.parse(saved));
+    }
+  }, []);
   const [isDataSourceSelectorOpen, setIsDataSourceSelectorOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { config } = useConfig();
@@ -59,7 +56,7 @@ export default function ChatInterface() {
     return () => {
       websocket.close();
     };
-  }, []);
+  }, [config.agentUrl]);
 
   const sendMessage = () => {
     if (!input.trim() || !ws) return;
@@ -70,10 +67,14 @@ export default function ChatInterface() {
       return;
     }
     
-    const msg = {
+    const msg: MessageEvent = {
       id: Date.now().toString(),
-      content: input,
-      sender: 'user',
+      type: 'message',
+      timestamp: new Date().toISOString(),
+      message: {
+        role: 'user',
+        content: input
+      }
     };
     
     ws.send(JSON.stringify({
@@ -91,22 +92,24 @@ export default function ChatInterface() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4 w-full">
         <div id='chat-messages' className="max-w-4xl mx-auto space-y-4 px-4 w-full">
           {events.map((event, index) => {
-            if (event.type === 'user') return null;
+            if (event.type === 'message' && event.message.role === 'user') return null;
             
             let matchingToolResult;
             if (event.type === 'tool_call') {
               matchingToolResult = events.find(
                 e => e.type === 'tool_result' && e.tool_call_id === event.tool_call_id
-              );
+              ) as ToolResultEvent | undefined;
             }
 
             return (
               <div key={event.id} className="text-left">
-                <EventRenderer 
-                  event={event}
-                  matchingToolResult={matchingToolResult}
-                  ws={ws}
-                />
+                {ws && (
+                  <EventRenderer 
+                    event={event}
+                    matchingToolResult={matchingToolResult}
+                    ws={ws}
+                  />
+                )}
               </div>
             );
           })}

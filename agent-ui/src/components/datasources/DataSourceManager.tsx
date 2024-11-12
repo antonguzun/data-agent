@@ -180,6 +180,7 @@ const DataSourceManager: React.FC = () => {
               <Select.Option value={DataSourceType.Postgres}>PostgreSQL</Select.Option>
               <Select.Option value={DataSourceType.MongoDB}>MongoDB</Select.Option>
               <Select.Option value={DataSourceType.SQLite}>SQLite</Select.Option>
+              <Select.Option value="clickhouse">ClickHouse</Select.Option>
             </Select>
           </Form.Item>
           <Form.Item
@@ -195,7 +196,7 @@ const DataSourceManager: React.FC = () => {
                 >
                   <Input />
                 </Form.Item>
-              ) : getFieldValue('type') === DataSourceType.MySQL && (
+              ) : (getFieldValue('type') === DataSourceType.MySQL || getFieldValue('type') === DataSourceType.ClickHouse) && (
                 <>
                   <Form.Item
                     name="host"

@@ -54,7 +54,6 @@ class NetworkDataSource(BaseDataSource):
 class MySQLDataSource(NetworkDataSource):
     type: DataSourceType = DataSourceType.MYSQL
 
-
 class PostgresDataSource(NetworkDataSource):
     type: DataSourceType = DataSourceType.POSTGRES
 
