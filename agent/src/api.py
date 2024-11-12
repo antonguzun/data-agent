@@ -15,7 +15,6 @@ from datetime import datetime
 
 from agents.chat_agent import ChatOpenAIDatasourceAgent
 from chat_processor import Conversation
-from config import TaskStatus
 
 app = FastAPI()
 

@@ -1,10 +1,14 @@
 'use client';
 
+'use client';
+
 import React from 'react';
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 const Header = () => {
+    const pathname = usePathname();
     const pathname = usePathname();
     return (
         <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-sm border-b z-50">
@@ -21,6 +25,8 @@ const Header = () => {
                     </Link>
                 </li>
                 <li>
+                    <Link href="/results" className="inline-flex justify-items-end px-3 py-2 border border-transparent text-base font-small rounded-lg hover transition-colors text-gray-900">
+                        results
                     <Link href="/results" className="inline-flex justify-items-end px-3 py-2 border border-transparent text-base font-small rounded-lg hover transition-colors text-gray-900">
                         results
                     </Link>
