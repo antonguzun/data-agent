@@ -51,9 +51,9 @@ docker compose up
 
 ### Data Sources
 - [x] SQLite support
-- [ ] MySQL support
+- [x] MySQL support
 - [ ] PostgreSQL support
-- [ ] ClickHouse support
+- [x] ClickHouse support
 
 ### Future Features
 - [ ] Interactive data visualizations with customizable charts and graphs
