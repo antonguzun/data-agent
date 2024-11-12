@@ -1,65 +1,21 @@
 import { NextResponse } from 'next/server';
-import { createDataSourceConnection } from '@/libs/DataSourceConnection';
-import { getDataSourceCredentials } from '@/libs/DataSourceConnection';
-import { DataSourceType } from '@/types/DataSource';
-import { RowDataPacket } from 'mysql2';
+import { createDatabaseOperations } from '@/interfaces/TableDefinition';
 
 interface TableInfoResponse {
-    showCreateTable: string[];
+    showCreateTable: string;
 }
 
-async function getMySQLTableInfo(db: any, tableName: string): Promise<string[]> {
-    const [showCreateTable] = await db.execute(
-        'SHOW CREATE TABLE ??',
-        [tableName]
-    );
-    return showCreateTable.map((row: RowDataPacket) => Object.values(row)[0] as string);
-}
-
-async function getSQLiteTableInfo(db: any, tableName: string): Promise<string[]> {
-    const [sqliteTable] = await db.execute(
-        'SELECT sql FROM sqlite_master WHERE type=? AND name=?',
-        ['table', tableName]
-    );
-    return sqliteTable.map((row: RowDataPacket) => row.sql as string);
-}
-
-async function getClickhouseTableInfo(db: any, tableName: string): Promise<string[]> {
-    const [showCreateTable] = await db.query(
-        { query: `SHOW CREATE TABLE ${tableName}` }
-    );
-    const showCreateTableJson = await showCreateTable.read();
-    console.log(showCreateTableJson);
-    return showCreateTable.map((row: RowDataPacket) => Object.values(row)[0] as string);
-}
-
-
-async function getTableInfo(db: any, type: DataSourceType, tableName: string): Promise<string[]> {
-    switch (type) {
-        case DataSourceType.MySQL:
-            return getMySQLTableInfo(db, tableName);
-        case DataSourceType.SQLite:
-            return getSQLiteTableInfo(db, tableName);
-        case DataSourceType.ClickHouse:
-            return getClickhouseTableInfo(db, tableName);
-        default:
-            throw new Error(`Unsupported database type: ${type}`);
-    }
-}
 
 export async function GET(
     request: Request,
     { params }: { params: { id: string; tableName: string } }
 ): Promise<NextResponse<TableInfoResponse | { error: string; details?: string }>> {
-    let db;
+    let dbOps;
     try {
-        const credentials = await getDataSourceCredentials(params.id);
-        if (!credentials) {
-            throw new Error('Data source credentials not found');
-        }
+        dbOps = await createDatabaseOperations(params.id);
+        await dbOps.init();
 
-        db = await createDataSourceConnection(params.id);
-        const tableInfo = await getTableInfo(db, credentials.type, params.tableName);
+        const tableInfo = await dbOps.fetchTableDefinition(params.tableName);
 
         return NextResponse.json({ showCreateTable: tableInfo }, { status: 200 });
     } catch (error: unknown) {
@@ -70,10 +26,8 @@ export async function GET(
             { status: 500 }
         );
     } finally {
-        if (db) {
-            await db.end().catch(err =>
-                console.error('Error closing database connection:', err)
-            );
+        if (dbOps) {
+            await dbOps.close();
         }
     }
 }
