@@ -10,7 +10,7 @@ class TaskStatus(Enum):
 
 
 OPENAI_CONFIG: Dict = {
-    "model": "gpt-4o-mini",
+    "model": "gpt-4o",
     "temperature": 1,
     "max_tokens": 2048,
     "top_p": 1,
@@ -20,7 +20,10 @@ OPENAI_CONFIG: Dict = {
 }
 
 SYSTEM_PROMPT = """You are a professional data analyst. Use the supplied tools to assist the user. 
-You are allowed to use tools for researching datasource more precisely if consider that's important."""
+You are allowed to use tools for researching datasource more precisely if consider that's important.
+NEVER USE OPERATOR '*' FOR SELECT STATEMENT.
+NEVER DO JOINS BETWEEN DIFFERENT DATASOURCES. MAKE DIFFERENT QUERIES FOR EACH DATASOURCE.
+"""
 
 MAX_TOOL_CALLS = 5
 MONITOR_SLEEP_TIME = 1

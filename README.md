@@ -53,7 +53,7 @@ docker compose up
 - [x] SQLite support
 - [x] MySQL support
 - [ ] PostgreSQL support
-- [ ] ClickHouse support
+- [x] ClickHouse support
 
 ### Future Features
 - [ ] Interactive data visualizations with customizable charts and graphs

@@ -117,6 +117,7 @@ const DataSourceManager: React.FC = () => {
               <Select.Option value="mysql">MySQL</Select.Option>
               <Select.Option value="postgres">PostgreSQL</Select.Option>
               <Select.Option value="mongodb">MongoDB</Select.Option>
+              <Select.Option value="clickhouse">ClickHouse</Select.Option>
             </Select>
           </Form.Item>
           <Form.Item

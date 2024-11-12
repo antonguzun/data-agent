@@ -15,5 +15,6 @@ export enum DataSourceType {
   MySQL = 'mysql',
   Postgres = 'postgres',
   MongoDB = 'mongodb',
-  SQLite = 'sqlite'
+  SQLite = 'sqlite',
+  ClickHouse = 'clickhouse'
 }

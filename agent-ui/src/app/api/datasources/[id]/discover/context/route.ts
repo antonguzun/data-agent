@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { dbConnect } from '@/libs/mongodb';
 import { IDataSourceContext, ITable } from '@/types/DataSourceContext';
-import { DataSourceType } from '@/types/DataSource';
-import { 
-  createDataSourceConnection, 
-  getDataSourceCredentials 
-} from '@/libs/DataSourceConnection';
+import { createDatabaseOperations, IDatabaseOperations } from '@/interfaces/TableDefinition';
+
 
 export async function GET(
   request: Request,
@@ -32,7 +29,7 @@ export async function GET(
     const contextDoc = await mdb
       .collection('datasource-contexts')
       .findOne({ _id: new ObjectId(id) });
-    
+
     console.log("contextDoc", contextDoc)
 
     const context: IDataSourceContext = {
@@ -49,7 +46,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching context:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch context',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -58,39 +55,6 @@ export async function GET(
   }
 }
 
-
-async function fetchTable(
-  tableName: string, 
-  db: any, 
-  dataSourceId: string
-): Promise<string> {
-  const credentials = await getDataSourceCredentials(dataSourceId);
-  if (!credentials) {
-    throw new Error('Data source credentials not found');
-  }
-
-  let tableDefinition;
-  switch (credentials.type) {
-    case DataSourceType.MySQL:
-      const [showCreateTable] = await db.execute(`SHOW CREATE TABLE \`${tableName}\``);
-      tableDefinition = showCreateTable.map((row: any) => Object.values(row)[1]);
-      break;
-
-    case DataSourceType.SQLite:
-      const [sqliteTable] = await db.execute(
-        `SELECT sql FROM sqlite_master WHERE type='table' AND name = ?`,
-        [tableName]
-      );
-      tableDefinition = sqliteTable.map((row: any) => row.sql)[0];
-      break;
-
-    default:
-      throw new Error(`Unsupported database type: ${credentials.type}`);
-  }
-
-  console.log(tableDefinition);
-  return tableDefinition;
-}
 
 export async function PATCH(
   request: Request,
@@ -101,7 +65,7 @@ export async function PATCH(
     const context = await request.json();
 
     const mdb = await dbConnect();
-    
+
     await mdb
       .collection('datasource-contexts')
       .updateOne(
@@ -115,7 +79,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Error updating context:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to update context',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -125,9 +89,11 @@ export async function PATCH(
 }
 
 export async function PUT(
-  request: Request, 
+  request: Request,
   { params }: { params: { id: string } }
 ) {
+  let dbOps: IDatabaseOperations;
+
   try {
     const { id } = params;
     const { tableNames } = await request.json();
@@ -140,11 +106,13 @@ export async function PUT(
     }
 
     const mdb = await dbConnect();
-    const db = await createDataSourceConnection(id);
-    
+
+    dbOps = await createDatabaseOperations(params.id);
+    await dbOps.init();
+
     const tables: ITable[] = await Promise.all(
       tableNames.map(async (tableName) => {
-        const tableOutput = await fetchTable(tableName, db, id);
+        const tableOutput = await dbOps.fetchTableDefinition(tableName);
         return {
           tableName,
           tableOutput,
@@ -159,7 +127,7 @@ export async function PUT(
     await mdb
       .collection('datasource-contexts')
       .updateOne(
-        { _id: new ObjectId(id) }, 
+        { _id: new ObjectId(id) },
         { $set: { tables: JSON.stringify(tables) } },
         { upsert: true }
       );
@@ -174,13 +142,11 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating context:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to update context', 
+      {
+        error: 'Failed to update context',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
   }
 }
-
-

@@ -1,6 +1,8 @@
 import logging
+import logging
 import os
 import time
+import traceback
 import traceback
 from datetime import datetime
 
@@ -9,6 +11,7 @@ from pymongo import MongoClient
 from agents.datasource_agents.hypothesis_agent import HypothesisProcessor
 from agents.datasource_agents.question_agent import QuestionProcessor
 from agents.task_categorizer import TaskCategorizer
+from agents.chat_agent import ChatAgent
 from config import TaskStatus, MONITOR_SLEEP_TIME
 from init_test_db import import_test_db
 from logs import init_logger
@@ -25,6 +28,7 @@ class TaskMonitor:
         self.hypothesis_processor = HypothesisProcessor(self.db)
         self.question_processor = QuestionProcessor(self.db)
         self.categorizer = TaskCategorizer()
+        self.chat_agent = ChatAgent(self.db)
 
     def _update_task_status(self, task_id, status, task_type=None, **kwargs):
         """Update task status and additional fields"""
@@ -70,8 +74,33 @@ class TaskMonitor:
                 **result,
             )
             logging.info(f"Task {task['_id']} processed")
+        try:
+            self._update_task_status(
+                task["_id"],
+                TaskStatus.COMPLETED,
+                **result,
+            )
+            logging.info(f"Task {task['_id']} processed")
 
         except Exception as e:
+            self._mark_task_failed(task["_id"], e)
+
+    def run(self):
+        """Start monitoring for new tasks"""
+        import_test_db(self.db)
+
+        while True:
+            try:
+                # Check for new tasks
+                new_task = self.db.tasks.find_one({"status": "pending"})
+                if new_task:
+                    self._process_new_task(new_task)
+
+                time.sleep(MONITOR_SLEEP_TIME)
+
+            except Exception as e:
+                logging.exception(f"Monitor error: {e}")
+                time.sleep(MONITOR_SLEEP_TIME)
             self._mark_task_failed(task["_id"], e)
 
     def run(self):
@@ -93,5 +122,7 @@ class TaskMonitor:
 
 
 if __name__ == "__main__":
+    monitor = TaskMonitor()
+    monitor.run()
     monitor = TaskMonitor()
     monitor.run()
