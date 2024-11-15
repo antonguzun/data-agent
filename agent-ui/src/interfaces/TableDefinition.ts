@@ -2,6 +2,7 @@ import { getDataSourceCredentials } from '@/libs/DataSourceConnection';
 import { DataSourceType, IDataSource } from '@/types/DataSource';
 import { createClient, NodeClickHouseClient } from '@clickhouse/client/dist/client';
 import { Connection } from 'mysql2/promise';
+import { Client } from 'pg';
 import { Database } from 'sqlite3';
 import sqlite3 from 'sqlite3';
 import mysql from 'mysql2/promise';
@@ -177,6 +178,81 @@ export class ClickHouseDatabaseOperations implements IDatabaseOperations {
     }
 }
 
+export class PostgresDatabaseOperations implements IDatabaseOperations {
+    private client: Client | null = null;
+    private credentials: IDataSource;
+
+    constructor(credentials: IDataSource) {
+        this.credentials = credentials;
+    }
+
+    async init(): Promise<void> {
+        this.client = new Client({
+            host: this.credentials.host,
+            user: this.credentials.username,
+            password: this.credentials.password,
+            database: this.credentials.database,
+            port: parseInt(this.credentials.port || '5432'),
+        });
+        await this.client.connect();
+    }
+
+    async close(): Promise<void> {
+        if (this.client) {
+            await this.client.end();
+        }
+    }
+
+    async fetchTableList(): Promise<string[]> {
+        if (!this.client) throw new Error("Database not initialized");
+        const result = await this.client.query(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        );
+        return result.rows.map(row => row.table_name);
+    }
+
+    async fetchTableDefinition(tableName: string): Promise<string> {
+        if (!this.client) throw new Error("Database not initialized");
+        const result = await this.client.query(
+            `SELECT                                          
+            'CREATE TABLE ' || relname || E'\n(\n' ||
+            array_to_string(
+                array_agg(
+                '    ' || column_name || ' ' ||  type || ' '|| not_null
+                )
+                , E',\n'
+            ) || E'\n);\n'
+            from
+            (
+            SELECT 
+                c.relname, a.attname AS column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) as type,
+                case 
+                when a.attnotnull
+                then 'NOT NULL' 
+                else 'NULL' 
+                END as not_null 
+            FROM pg_class c,
+            pg_attribute a,
+            pg_type t
+            WHERE c.relname = '${tableName}'
+            AND a.attnum > 0
+            AND a.attrelid = c.oid
+            AND a.atttypid = t.oid
+            ORDER BY a.attnum
+            ) as tabledefinition
+            group by relname;`
+        );
+        // console.log('PG SCHEMA', result.rows[0]['?column?']);
+        return result.rows[0]['?column?'];
+    }
+
+    async testConnection(): Promise<void> {
+        if (!this.client) throw new Error("Database not initialized");
+        await this.client.query('SELECT 1');
+    }
+}
+
 export async function createDatabaseOperations(
     datasourceId: string,
 ): Promise<IDatabaseOperations> {
@@ -189,6 +265,8 @@ export async function createDatabaseOperations(
             return new SQLiteDatabaseOperations(credentials);
         case DataSourceType.ClickHouse:
             return new ClickHouseDatabaseOperations(credentials);
+        case DataSourceType.Postgres:
+            return new PostgresDatabaseOperations(credentials);
         default:
             throw new Error(`Unsupported database type: ${credentials.type}`);
     }

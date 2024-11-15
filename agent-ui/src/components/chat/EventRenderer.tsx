@@ -34,6 +34,15 @@ export function EventRenderer({ event, matchingToolResult, ws }: EventRendererPr
         </div>
       );
 
+    case 'user':
+      return (
+        <div className="flex justify-end">
+          <div className="bg-blue-600 text-white rounded-lg px-4 py-2 max-w-[80%]">
+            {event.message}
+          </div>
+        </div>
+      );
+
     case 'tool_call':
       return <ToolCallRenderer event={event} matchingToolResult={matchingToolResult} ws={ws} />;
 

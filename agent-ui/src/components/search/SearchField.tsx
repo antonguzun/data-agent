@@ -160,7 +160,7 @@ export const SearchField: React.FC = () => {
 
     try {
       setIsGenerating(true);
-      const response = await fetch(`${config.agentUrl}/generate-hypothesis`, {
+      const response = await fetch(`${config.agentApiUrl}/generate-hypothesis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

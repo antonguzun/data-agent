@@ -157,6 +157,8 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
                 #     }))
                 # continue
             res = conversation.add_user_message(db, message)
+            await websocket.send_text(res.model_dump_json())
+
             if len(res.datasoruceIds) == 0:
                 await websocket.send_text(json.dumps({
                     "type": "error",

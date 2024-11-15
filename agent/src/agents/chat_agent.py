@@ -71,7 +71,8 @@ class ChatOpenAIDatasourceAgent:
         messages = self._prepare_messages(question, datasources)
         for message in messages:
             event = self.conversation.add_prompt_message(self.mongodb, message)
-            yield event
+            if message["role"] != "user":
+                yield event
 
         response = self.client.chat.completions.create(
             messages=messages,

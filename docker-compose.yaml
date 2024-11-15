@@ -21,8 +21,7 @@ services:
       - "3000:3000"
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/research_db
-      - NEXT_PUBLIC_AGENT_API_URL=agent-api:8000
-      - NEXT_PUBLIC_AGENT_URL=agent-api:8000
+      - NEXT_PUBLIC_AGENT_API_URL=${NEXT_PUBLIC_AGENT_API_URL}
     depends_on:
       - mongodb
     networks:
@@ -36,7 +35,6 @@ services:
       dockerfile: Dockerfile
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
       - IMPORT_TEST_DB=1
       - MONGODB_URI=mongodb://mongodb:27017/
     networks:
@@ -53,7 +51,6 @@ services:
       - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
       - MONGODB_URI=mongodb://mongodb:27017/
     networks:
       - app-network

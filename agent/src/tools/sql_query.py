@@ -2,12 +2,14 @@ import sqlite3
 import mysql.connector
 from mysql.connector import Error
 from clickhouse_driver import Client
+import psycopg2
 
 from models.datasource import (
     DataSourceType,
     SQLiteDataSource,
     MySQLDataSource,
     ClickhouseDataSource,
+    PostgresDataSource,
 )
 
 
@@ -23,6 +25,30 @@ def execute_sqllite(datasource: SQLiteDataSource, query, params=None):
         return results
     finally:
         conn.close()
+
+
+def execute_postgres(datasource: PostgresDataSource, query, params=None):
+    connection = None
+    cursor = None
+    try:
+        connection = psycopg2.connect(
+            host=datasource.host,
+            user=datasource.username,
+            password=datasource.password,
+            database=datasource.database,
+        )
+        cursor = connection.cursor()
+        cursor.execute(query, params or ())
+        results = cursor.fetchall()
+        return results
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 
 def execute_clickhouse(datasource: ClickhouseDataSource, query, params=None):
@@ -95,5 +121,7 @@ def execute_sql_query(query, params=None, **kwargs):
         return execute_mysql(datasource, query, params)
     elif datasource.type == DataSourceType.CLICKHOUSE:
         return execute_clickhouse(datasource, query, params)
+    elif datasource.type == DataSourceType.POSTGRES:
+        return execute_postgres(datasource, query, params)
     else:
         raise Exception(f"{datasource.type} datasources are not supported")

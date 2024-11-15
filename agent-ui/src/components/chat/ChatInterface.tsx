@@ -1,12 +1,15 @@
 "use client"
 import { useEffect, useState, useRef } from 'react';
 import { useConfig } from '@/hooks/useConfig';
-const STORAGE_KEY = 'selectedDatasources';
 import { EventRenderer } from './EventRenderer';
 import { useDataSources } from '@/hooks/useDataSources';
 import { DataSourceSelector } from './DataSourceSelector';
 import { message } from 'antd';
 import type { Event, MessageEvent, ToolResultEvent } from '@/types/events';
+
+
+const STORAGE_KEY = 'selectedDatasources';
+
 
 export default function ChatInterface() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -40,7 +43,7 @@ export default function ChatInterface() {
   }, [events]);
 
   useEffect(() => {
-    const websocket = new WebSocket(`ws://${config.agentUrl}/ws/${Date.now()}`);
+    const websocket = new WebSocket(`ws://${config.agentApiUrl}/ws/${Date.now()}`);
     
     websocket.onopen = () => {
       console.log('WebSocket Connected');
@@ -56,7 +59,7 @@ export default function ChatInterface() {
     return () => {
       websocket.close();
     };
-  }, [config.agentUrl]);
+  }, [config.agentApiUrl]);
 
   const sendMessage = () => {
     if (!input.trim() || !ws) return;

@@ -31,16 +31,33 @@ https://github.com/user-attachments/assets/069427e8-ae1a-48c6-9b02-a9d0d1973191
 
 ### Installation
 
-1. Set up your environment variables:
-```bash
-OPENAI_API_KEY=your_openai_key_here
-TAVILY_API_KEY=your_tavily_key_here
-```
 
-2. Launch with Docker:
-```bash
-docker compose up
-```
+## Setup and Running Instructions
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env_example .env
+   ```
+
+2. **Add your keys to the `.env` file:**
+   - `OPENAI_API_KEY`: [Create API key](https://platform.openai.com/settings/profile/api-keys)
+   - `IMPORT_TEST_DB=1`: Keep `1` if you want to create a test SQLite database with the wildfires dataset
+   - `NEXT_PUBLIC_AGENT_API_URL=localhost:8000`: Keep `localhost` if you work locally, replace with your domain if you want to host it elsewhere
+
+3. **Load the environment variables:**
+   ```bash
+   export $(cat .env | xargs)
+   ```
+
+4. **Launch with Docker:**
+   ```bash
+   docker compose up -d
+   ```
+
+5. **Access the application:**
+   - **Agent UI:** Open your browser and go to `http://localhost:3000`
+   - **Agent API:** The API will be available at `http://localhost:8000`
+
 
 ## Roadmap
 
@@ -52,7 +69,7 @@ docker compose up
 ### Data Sources
 - [x] SQLite support
 - [x] MySQL support
-- [ ] PostgreSQL support
+- [x] PostgreSQL support
 - [x] ClickHouse support
 
 ### Future Features

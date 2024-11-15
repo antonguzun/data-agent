@@ -1,9 +1,7 @@
 export interface Config {
-  agentUrl: string;
-  agentWs: string;
+  agentApiUrl: string;
 }
 
 export const getServerConfig = (): Config => ({
-  agentUrl: process.env.NEXT_PUBLIC_AGENT_URL || 'localhost:8000',
-  agentWs: process.env.NEXT_PUBLIC_AGENT_URL || 'localhost:8000'
+  agentApiUrl: process.env.NEXT_PUBLIC_AGENT_API_URL || 'localhost:8000',
 });
