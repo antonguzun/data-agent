@@ -208,7 +208,7 @@ export class PostgresDatabaseOperations implements IDatabaseOperations {
         const result = await this.client.query(
             "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema';"
         );
-        return result.rows.map(row => row.table_name);
+        return result.rows.map(row => row.tablename);
     }
 
     async fetchTableDefinition(tableName: string): Promise<string> {
