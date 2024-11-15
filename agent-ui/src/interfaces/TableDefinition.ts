@@ -206,7 +206,7 @@ export class PostgresDatabaseOperations implements IDatabaseOperations {
     async fetchTableList(): Promise<string[]> {
         if (!this.client) throw new Error("Database not initialized");
         const result = await this.client.query(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema';"
         );
         return result.rows.map(row => row.table_name);
     }
