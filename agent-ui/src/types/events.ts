@@ -44,7 +44,13 @@ export interface ToolResultEvent extends BaseEvent {
   output: string;
 }
 
-export type Event = MessageEvent | PromptEvent | LogEvent | ToolCallEvent | ToolResultEvent;
+export interface UserEvent extends BaseEvent {
+  type: 'user';
+  message: string;
+}
+
+
+export type Event = MessageEvent | PromptEvent | LogEvent | ToolCallEvent | ToolResultEvent | UserEvent;
 
 export interface ExpandableProps {
   title: string | ReactNode;
